@@ -1,7 +1,10 @@
 const express = require('express');
 const { executeQuery } = require('../db');
 
-const { insertPostQuery, insertPostPhotoQuery, issertPostVideoQuery, getMyPostsQuery, userQuery } = require('../lib/query');
+const { 
+  insertShareQuery, sigleMyShareQuery, deleteSingleShareQuery,
+  deleteSingleLikeQuery, sigleMyLikeQuery, insertLikeQuery, insertPostQuery, insertPostPhotoQuery, 
+  issertPostVideoQuery, getMyPostsQuery, insertCommentQuery, getCommentsQuery } = require('../lib/query');
 
 const router = express.Router();
 
@@ -104,9 +107,89 @@ router.post('/getMyPosts', auth, async (req, res) => {
   const { userID } = req.body;
   try {
     
-    const myPosts = await executeQuery(getMyPostsQuery, [userID])
+    let myPosts = await executeQuery(getMyPostsQuery, [userID])
 
-    res.json({ status: true, message: "Getting data successfully", posts: myPosts})
+    let options = { year: 'numeric', month: 'long', day: 'numeric' }; // weekday: 'long', 
+
+    myPosts.forEach((element, _index) => {
+      executeQuery(getCommentsQuery, [element.post_id])
+      .then((result) => {
+        
+        result.forEach(item => {
+          let comment_date = new Date(item.comment_created)
+          item.comment_created = comment_date.toLocaleDateString("en-US", options)
+        });
+        myPosts[_index]['comments'] = result;
+        var today  = new Date(element.post_created);
+        myPosts[_index]['post_created'] = today.toLocaleDateString("en-US", options)
+        if (_index == myPosts.length - 1) {
+          res.json({ status: true, message: "Getting data successfully", posts: myPosts})
+        }
+      })
+      .catch((err) => {
+        res.status(500).json({ status: false, message: 'Internal server error' });
+      })
+
+    });
+      
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: false, message: 'Internal server error' });
+  }
+})
+
+router.post('/addCommentPost', auth, async (req, res) => {
+  const userId = req.user.id;
+  const { post_id, content } = req.body;
+  try {
+    
+    await executeQuery(insertCommentQuery, [userId, post_id, content])
+
+    res.json({ status: true, message: "Created comment successfully" })
+      
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: false, message: 'Internal server error' });
+  }
+})
+
+router.post('/doLike', auth, async (req, res) => {
+  const userId = req.user.id;
+  const { post_id } = req.body;
+  try {
+    
+    const mylike = await executeQuery(sigleMyLikeQuery, [userId, post_id])
+
+    if (mylike && mylike[0]) {
+      await executeQuery(deleteSingleLikeQuery, [userId, post_id])
+      res.json({ status: false, message: "Deleted successfully" })
+    }
+    else {
+      await executeQuery(insertLikeQuery, [userId, post_id])
+      res.json({ status: true, message: "Recommended successfully" })
+    }
+      
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: false, message: 'Internal server error' });
+  }
+})
+
+router.post('/doShare', auth, async (req, res) => {
+  const userId = req.user.id;
+  const { post_id } = req.body;
+  try {
+
+    const myshare = await executeQuery(sigleMyShareQuery, [userId, post_id])
+
+    if (myshare && myshare[0]) {
+      await executeQuery(deleteSingleShareQuery, [userId, post_id])
+      res.json({ status: false, message: "Deleted successfully" })
+    }
+    else {
+      await executeQuery(insertShareQuery, [userId, post_id])
+      res.json({ status: true, message: "Shared successfully" })
+    }
       
   } catch (error) {
     console.error(error);

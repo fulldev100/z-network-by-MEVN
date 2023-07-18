@@ -3,6 +3,7 @@ const app = express();
 const users = require('./api/users');
 const profiles = require('./api/profiles');
 const posts = require('./api/posts');
+const chats = require('./api/chats');
 const todoRouter = require('./api/todos');
 const cors = require("cors")
 
@@ -24,6 +25,7 @@ app.use('/', todoRouter);
 app.use('/api/users', users);
 app.use('/api/profiles', profiles);
 app.use('/api/posts', posts);
+app.use('/api/chats', chats)
 
 
 // Start the server
