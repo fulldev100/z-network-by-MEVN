@@ -3,7 +3,7 @@ const router = express.Router();
 const Imap = require('imap');
 const {simpleParser} = require('mailparser');
 
-const { insertBellQuery } = require('../lib/query');
+const { insertBellQuery, existBellQuery } = require('../lib/query');
 const { executeQuery } = require('../db');
 const auth = require('../middleware/auth');
 
@@ -197,7 +197,9 @@ router.post('/unseen', auth, (req,res) => {
                       }
                     )
 
-                    await executeQuery(insertBellQuery, [userId, 'envelope', parsed.subject, 1]);
+                    const existBell = await executeQuery(existBellQuery, [userId, 'envelope', parsed.subject, 1])
+                    if (!existBell)
+                      await executeQuery(insertBellQuery, [userId, 'envelope', parsed.subject, 1]);
 
                 });
                 
