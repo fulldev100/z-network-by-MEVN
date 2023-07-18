@@ -45,7 +45,9 @@ router.post('/getChatList', auth, async (req, res) => {
             let message_item = { id: null, from_id: null, to_id: null, message: null, seen: 0, shared_id: null, created_at: null }
             if (messages && messages.length > 0) {
                 message_item = messages[messages.length - 1]
-                message_item.created_at = message_item.created_at.toLocaleDateString("en-US", options)
+                var date = new Date;
+                date.setTime(message_item.created_at);
+                message_item.created_at = (date.getHours() < 10 ? '0'+date.getHours(): date.getHours()) + ':' + (date.getMinutes() < 10 ? '0'+date.getMinutes() : date.getMinutes())
                 contactList[_index]['last_message'] = message_item
             }
             else contactList[_index]['last_message'] = message_item
@@ -86,10 +88,12 @@ router.post('/getMessages', auth, async (req, res) => {
 
         await executeQuery(updateMessageStateQuery, [1, userID, userId])
 
-        let options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' }; // weekday: 'long', 
+        let options = { hour: 'numeric', minute: 'numeric' }; // weekday: 'long', 
 
         messages.forEach(message => {
-          message.created_at = message.created_at.toLocaleDateString("en-US", options)
+          var date = new Date;
+          date.setTime(message.created_at);
+          message.created_at = (date.getHours() < 10 ? '0'+date.getHours(): date.getHours()) + ':' + (date.getMinutes() < 10 ? '0'+date.getMinutes() : date.getMinutes())
         });
         res.json({status: true, messages: messages})
 

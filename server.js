@@ -6,7 +6,9 @@ const posts = require('./api/posts');
 const chats = require('./api/chats');
 const todoRouter = require('./api/todos');
 const cors = require("cors")
-
+const socket = require("socket.io");
+const { insertBellQuery, existBellQuery } = require('./lib/query');
+const { executeQuery } = require('./db');
 const bodyParser = require('body-parser');
 
 app.use(cors({
@@ -27,9 +29,40 @@ app.use('/api/profiles', profiles);
 app.use('/api/posts', posts);
 app.use('/api/chats', chats)
 
-
 // Start the server
 const port = 3000;
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Server running on port ${port}`);
+});
+
+const io = socket(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+const activeUsers = new Set();
+
+io.on("connection", function (socket) {
+
+  socket.on("new user", function (data) {
+    socket.userId = data;
+    activeUsers.add(data);
+    io.emit("new user", [...activeUsers]);
+  });
+
+  socket.on("disconnect", () => {
+    activeUsers.delete(socket.userId);
+    io.emit("user disconnected", socket.userId);
+  });
+
+  socket.on("chat_message", function (data) {
+    executeQuery(insertBellQuery, [data.to, 'comment', data.message, 1])
+    .then((re) => io.emit("chat_message", data.send))
+    .catch((err) => console.log("err"))
+  });
+  
+  socket.on("typing", function (data) {
+    socket.broadcast.emit("typing", data);
+  });
 });
