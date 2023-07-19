@@ -7,7 +7,7 @@ const chats = require('./api/chats');
 const todoRouter = require('./api/todos');
 const cors = require("cors")
 const socket = require("socket.io");
-const { insertBellQuery, existBellQuery } = require('./lib/query');
+const { insertBellQuery, updateMessageStateQuery } = require('./lib/query');
 const { executeQuery } = require('./db');
 const bodyParser = require('body-parser');
 
@@ -45,24 +45,106 @@ const activeUsers = new Set();
 
 io.on("connection", function (socket) {
 
-  socket.on("new user", function (data) {
+  socket.on("new_user", function (data) {
     socket.userId = data;
-    activeUsers.add(data);
-    io.emit("new user", [...activeUsers]);
+
+    activeUsers.forEach(x => x.userId === data ? activeUsers.delete(x) : x)
+    activeUsers.add({userId: data, socketID: socket.id});
+
+    console.log(activeUsers)
+    io.emit("new_user", [...activeUsers]);
   });
 
-  socket.on("disconnect", () => {
+  socket.on("disconnected", () => {
+    console.log("disconnected: ", socket.userId)
     activeUsers.delete(socket.userId);
-    io.emit("user disconnected", socket.userId);
+    io.emit("user_disconnected", socket.userId);
+  });
+
+  socket.on("message_seen", (data) => {
+     // If my socket id doesn't exist, add new user
+     let existMe = false
+     for (const [key, value] of activeUsers.entries()) {
+       if (value.userId == data.sender) {
+         existMe = true;
+         break
+       }
+     }
+     if (existMe == false) {
+       activeUsers.add({userId: data.sender, socketID: socket.id});
+     }
+
+    if (data.sender != null && data.to != null)
+    {
+      socket.broadcast.emit("message_seen", {sender: data.sender, to: data.to})
+      executeQuery(updateMessageStateQuery, [1, data.sender, data.to])
+      .then((result) => {})
+      .catch(() => {})
+    }
   });
 
   socket.on("chat_message", function (data) {
-    executeQuery(insertBellQuery, [data.to, 'comment', data.message, 1])
-    .then((re) => io.emit("chat_message", data.send))
-    .catch((err) => console.log("err"))
+
+    // If my socket id doesn't exist, add new user
+    let existMe = false
+    for (const [key, value] of activeUsers.entries()) {
+      if (value.userId == data.sender) {
+        existMe = true;
+        break
+      }
+    }
+    if (existMe == false) {
+      activeUsers.add({userId: data.sender, socketID: socket.id});
+    }
+
+    let date = new Date();
+    let current_time = (date.getHours() < 10 ? '0'+date.getHours(): date.getHours()) + ':' + (date.getMinutes() < 10 ? '0'+date.getMinutes() : date.getMinutes())
+    let existReceiverUser = false;
+
+    if (existReceiverUser == false) {
+      socket.broadcast.emit("chat_message", { sender: data.sender, to: data.to, message: data.message, created_at: current_time })
+    }
+
+    // finding the socket id of receiver
+    for (const [key, value] of activeUsers.entries()) {
+      if (value.userId == data.to) {
+        existReceiverUser = true;
+      }
+    }
+
+    if (existReceiverUser == false) {
+      executeQuery(insertBellQuery, [data.to, 'envelope-square', data.message, 1])
+      .then((re) => {})
+      .catch((err) => console.log("err"))
+    }
   });
   
   socket.on("typing", function (data) {
-    socket.broadcast.emit("typing", data);
+    // socket.broadcast.emit("typing", data);
+    // If my socket id doesn't exist, add new user
+    let existMe = false
+    for (const [key, value] of activeUsers.entries()) {
+      if (value.userId == data.sender) {
+        existMe = true;
+        break
+      }
+    }
+    if (existMe == false) {
+      activeUsers.add({userId: data.sender, socketID: socket.id});
+    }
+
+    let existReceiverUser = false;
+    // finding the socket id of receiver
+    // for (const [key, value] of activeUsers.entries()) {
+    //   if (value.userId == data.to) {
+    //     existReceiverUser = true
+    //     io.to(value.socketID).emit("chat_message", { sender: data.sender, to: data.to })
+    //     break;
+    //   }
+    // }
+
+    if (existReceiverUser == false) {
+      socket.broadcast.emit("typing", { sender: data.sender, to: data.to })
+    }
   });
 });
