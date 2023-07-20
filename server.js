@@ -101,22 +101,23 @@ io.on("connection", function (socket) {
     let current_time = (date.getHours() < 10 ? '0'+date.getHours(): date.getHours()) + ':' + (date.getMinutes() < 10 ? '0'+date.getMinutes() : date.getMinutes())
     let existReceiverUser = false;
 
-    if (existReceiverUser == false) {
-      socket.broadcast.emit("chat_message", { sender: data.sender, to: data.to, message: data.message, created_at: current_time })
-    }
-
     // finding the socket id of receiver
     for (const [key, value] of activeUsers.entries()) {
       if (value.userId == data.to) {
+        io.to(value.socketID).emit("chat_message", { sender: data.sender, to: data.to, message: data.message, created_at: current_time })
         existReceiverUser = true;
+        break;
       }
     }
 
     if (existReceiverUser == false) {
+      socket.broadcast.emit("chat_message", { sender: data.sender, to: data.to, message: data.message, created_at: current_time })
+
       executeQuery(insertBellQuery, [data.to, 'envelope-square', data.message, 1])
       .then((re) => {})
       .catch((err) => console.log("err"))
     }
+
   });
   
   socket.on("typing", function (data) {
@@ -135,13 +136,13 @@ io.on("connection", function (socket) {
 
     let existReceiverUser = false;
     // finding the socket id of receiver
-    // for (const [key, value] of activeUsers.entries()) {
-    //   if (value.userId == data.to) {
-    //     existReceiverUser = true
-    //     io.to(value.socketID).emit("chat_message", { sender: data.sender, to: data.to })
-    //     break;
-    //   }
-    // }
+    for (const [key, value] of activeUsers.entries()) {
+      if (value.userId == data.to) {
+        existReceiverUser = true
+        io.to(value.socketID).emit("typing", { sender: data.sender, to: data.to })
+        break;
+      }
+    }
 
     if (existReceiverUser == false) {
       socket.broadcast.emit("typing", { sender: data.sender, to: data.to })

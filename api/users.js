@@ -1,6 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+// var axios = require('axios');
+// var FormData = require('form-data');
 
 const { tokenQuery, insertTokenQuery, updateTokenQuery, userQuery, allUsersQuery, registerQuery, updateStatusQuery, getAllNotificationQuery } = require('../lib/query');
 
@@ -45,6 +47,28 @@ router.post('/login', async (req, res) => {
     if (!passwordMatch) {
       return res.status(401).json({ status: false, code: 401, message: 'Invalid username or password' });
     }
+
+    // var data = new FormData();
+    // data.append('username', username);
+    // data.append('password', password);
+
+    // var config = {
+    //   method: 'post',
+    //   url: 'http://192.168.108.79/portal/logincheck.php',
+    //   credentials: 'include',
+    //   headers: { 
+    //     ...data.getHeaders()
+    //   },
+    //   data : data
+    // };
+
+    // axios(config)
+    // .then(function (response) {
+    //   console.log(JSON.stringify(response.data));
+    // })
+    // .catch(function (error) {
+    //   console.log(error);
+    // });
 
     // Generate JWT token
     const token = jwt.sign(
