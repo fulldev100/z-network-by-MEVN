@@ -1,6 +1,6 @@
 const express = require('express');
 const { executeQuery } = require('../db');
-
+const crypto = require('crypto');
 const { updateMessageStateQuery, gettingMessageList, gettingUnreadMessageCount, gettingContactList_following, gettingContactList_follower, insertMessageQuery } = require('../lib/query');
 
 const router = express.Router();
@@ -11,6 +11,7 @@ const fs = require('fs')
 
 const AWS_ACCESS_KEY_ID = "AKIAVBHONSQBZMPWQAUF";
 const AWS_SECRET_ACCESS_KEY = "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";
+const encryptionKey = 'znetworkpoencryptionkeyisprivate';
 
 AWS.config.update({
   accessKeyId: AWS_ACCESS_KEY_ID,
@@ -28,13 +29,23 @@ router.post('/getChatList', auth, async (req, res) => {
     const contactList_follower = await executeQuery(gettingContactList_follower, [userId])
 
     let contactList = []
-    contactList_following.forEach(following => {
-      contactList.push(following)
-      contactList_follower.forEach(follower => {
-        if (following.to_ID != follower.from_ID) 
-          contactList.push(follower)
+
+    if (contactList_following.length > 0)
+      contactList_following.forEach(following => {
+        contactList.push(following)
+        contactList_follower.forEach(follower => {
+          if (following.to_ID != follower.from_ID) 
+            contactList.push(follower)
+        });
       });
-    });
+    else 
+      contactList_follower.forEach(follower => {
+        contactList.push(follower)
+        contactList_following.forEach(following => {
+          if (following.to_ID != follower.from_ID) 
+            contactList.push(follower)
+        });
+      });
 
     let options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' }; // weekday: 'long', 
 
@@ -47,6 +58,13 @@ router.post('/getChatList', auth, async (req, res) => {
                 message_item = messages[messages.length - 1]
                 var date = new Date;
                 date.setTime(message_item.created_at);
+
+                const decipher = crypto.createDecipher('aes-256-cbc', encryptionKey);
+                let decrypted = decipher.update(message_item.message, 'hex', 'utf8');
+                decrypted += decipher.final('utf8');
+
+                message_item.message = decrypted
+                
                 message_item.created_at = (date.getHours() < 10 ? '0'+date.getHours(): date.getHours()) + ':' + (date.getMinutes() < 10 ? '0'+date.getMinutes() : date.getMinutes())
                 contactList[_index]['last_message'] = message_item
             }
@@ -93,6 +111,13 @@ router.post('/getMessages', auth, async (req, res) => {
         messages.forEach(message => {
           var date = new Date;
           date.setTime(message.created_at);
+
+          const decipher = crypto.createDecipher('aes-256-cbc', encryptionKey);
+          let decrypted = decipher.update(message.message, 'hex', 'utf8');
+          decrypted += decipher.final('utf8');
+
+          message.message = decrypted
+
           message.created_at = (date.getHours() < 10 ? '0'+date.getHours(): date.getHours()) + ':' + (date.getMinutes() < 10 ? '0'+date.getMinutes() : date.getMinutes())
         });
         res.json({status: true, messages: messages})
@@ -107,8 +132,11 @@ router.post('/sendMessage', auth, async (req, res) => {
     const userId = req.user.id;
     const { userID, content } = req.body;
     try {
-        
-        const newMessage = await executeQuery(insertMessageQuery, [userId, userID, content]);
+        const cipher = crypto.createCipher('aes-256-cbc', encryptionKey);
+        let encrypted = cipher.update(content, 'utf8', 'hex');
+        encrypted += cipher.final('hex');
+
+        const newMessage = await executeQuery(insertMessageQuery, [userId, userID, encrypted]);
         res.json({status: true, newMessage: newMessage})
 
     } catch (error) {

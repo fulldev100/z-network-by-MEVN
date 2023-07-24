@@ -48,29 +48,16 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ status: false, code: 401, message: 'Invalid username or password' });
     }
 
-    // var data = new FormData();
-    // data.append('username', username);
-    // data.append('password', password);
+    req.session.user = {
+      userID: user.userId,
+      username: username,
+      userSessionPass: password,
+      userVerified: true,
+      userVerifiedExpiry: 1000 * 60 * 60 * 36,
+      loginAttempts: 0,
+      lastAttemptTime: 0
+    }
 
-    // var config = {
-    //   method: 'post',
-    //   url: 'http://192.168.108.79/portal/logincheck.php',
-    //   credentials: 'include',
-    //   headers: { 
-    //     ...data.getHeaders()
-    //   },
-    //   data : data
-    // };
-
-    // axios(config)
-    // .then(function (response) {
-    //   console.log(JSON.stringify(response.data));
-    // })
-    // .catch(function (error) {
-    //   console.log(error);
-    // });
-
-    // Generate JWT token
     const token = jwt.sign(
         { 
             id: user.userId,
@@ -158,7 +145,7 @@ router.get('/notification', auth, async (req, res) => {
 
   try {
       // Get Info
-      const notificationInfo = await executeQuery(getAllNotificationQuery, [userId])
+      const notificationInfo = await executeQuery(getAllNotificationQuery, [userId, 10])
   
       if (!notificationInfo) {
           return res.status(404).json({ status: false, message: 'Info not found' });

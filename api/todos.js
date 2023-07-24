@@ -267,14 +267,5 @@ router.get('/dashboard', (req, res) => {
   });
 });
 
-router.get('/', (req,res) => {
-
-    return res.send({
-        message: "Welcome! Server",
-        title: "Test"
-    });
-
-});
-
 
 module.exports = router;
